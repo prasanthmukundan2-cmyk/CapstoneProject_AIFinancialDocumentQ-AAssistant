@@ -1,0 +1,9 @@
+{
+  "answer": "Here is a summary of the financial reports provided:\n\n**Acme Corp (2023 Annual Financial Report)**\n* **Performance Overview:** Experienced a transformative year in 2023.\n* **Key Market Risks:** Primary operational and financial risks center around supply chain disruptions and ongoing macroeconomic volatility.\n\n**NovaTech Holdings (2023 Annual Financial Report - USD)**\n* **Business Profile:** Global provider of enterprise software and financial analytics.\n* **Financial & Operational Highlights:** \n  * Maintained strong financial stability throughout FY 2023.\n  * Expanded its recurring cloud Software-as-a-Service (SaaS) subscription business.\n  * Reached record client satisfaction levels across international markets.",
+  "agent": "summary_agent",
+  "sources": [
+    "sample_financial_document.pdf",
+    "Document"
+  ],
+  "cached_at": "2026-09-17T19:19:06.437081"
+}

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python test_system.py)",
+      "Bash(python -m py_compile app.py)",
+      "Bash(python -m py_compile src/simple_document_qa.py)"
+    ]
+  }
+}

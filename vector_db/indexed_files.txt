@@ -1,0 +1,4 @@
+annual_report_2023.pdf
+annual_report_2024.pdf
+financial_terminology.pdf
+financial_kpi_dataset.csv
