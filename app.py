@@ -567,14 +567,10 @@ with tab1:
 
                             # Get LLM to generate document
                             llm = get_llm()
-                            from src.context import build_context
 
-                            # Build context for document creation
-                            context = build_context(question, doc_text)
-
-                            # Generate document using LLM
+                            # Generate document using LLM with document text as context
                             from src.document_creator import get_document_creation_prompt
-                            prompt = get_document_creation_prompt(question, context)
+                            prompt = get_document_creation_prompt(question, doc_text[:3000])
 
                             response = llm.invoke(prompt)
                             document_content = response.content if hasattr(response, 'content') else str(response)
