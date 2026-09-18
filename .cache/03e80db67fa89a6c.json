@@ -1,0 +1,9 @@
+{
+  "answer": "Here is a summary of NovaTech Holdings' financial performance for 2023 and 2024:\n\n### **Financial Summary: NovaTech Holdings (2023 vs. 2024)**\n\n* **Revenue & Cost Performance:**\n  * **Revenue Growth:** Revenue grew by **20%**, increasing from **$125M** in 2023 to **$150M** in 2024 (+$25M).\n  * **Expense Control:** Expenses rose by **18.75%**, moving from **$80M** to **$95M**, growing at a slightly slower pace than revenue.\n\n* **Profitability Margins:**\n  * **Gross Profit:** Increased by **22.22%** from **$45M** to **$55M**.\n  * **Operating Profit:** Rose by **28%** from **$25M** to **$32M**, reflecting improved operational efficiency.\n  * **Net Profit:** Expanded significantly by **33.33%** from **$15M** to **$20M**, boosting net profit margins from 12% to 13.33%.\n\n* **Balance Sheet & Financial Position:**\n  * **Total Assets:** Grew by **20%** from **$600M** to **$720M**.\n  * **Total Liabilities:** Increased modestly by **10.71%** from **$280M** to **$310M**.\n  * **Shareholders' Equity:** Strengths increased by **28.13%**, rising from **$320M** to **$410M**.\n\n* **Liquidity & Cash Position:**\n  * **Cash & Cash Equivalents:** Increased by **30.77%** from **$65M** to **$85M** (+$20M).\n  * **Current Ratio:** Liquidity improved slightly from **2.21x** in 2023 (Current Assets: $210M / Current Liabilities: $95M) to **2.36x** in 2024 ($260M / $110M), demonstrating strong short-term debt coverage.",
+  "agent": "summary_agent",
+  "sources": [
+    "balance_sheet.csv",
+    "Document"
+  ],
+  "cached_at": "2026-09-18T14:36:59.344403"
+}
