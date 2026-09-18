@@ -114,15 +114,8 @@ Answer:
 # ============================================================
 
 def kpi_node(state: dict) -> dict:
-    """Extract KPIs and metrics from document - WITH TOOL USAGE"""
-    logger.info("KPI Agent started with financial tools")
-
-    from src.financial_tools_agent import (
-        calculate_profit_margin,
-        calculate_growth_rate,
-        calculate_current_ratio,
-        get_available_tools
-    )
+    """Extract KPIs and metrics from document"""
+    logger.info("KPI Agent started")
 
     question = _get_question(state)
     sources = []
@@ -360,10 +353,8 @@ Comparison Analysis:
 # ============================================================
 
 def financial_health_node(state: dict) -> dict:
-    """Financial Health Analysis Agent - Uses financial tools"""
-    logger.info("Financial Health Agent started (Tool-Using Agent)")
-
-    from src.financial_tools_agent import analyze_financial_health, get_available_tools
+    """Financial Health Analysis Agent"""
+    logger.info("Financial Health Agent started")
 
     question = _get_question(state)
     sources = []
@@ -382,9 +373,6 @@ def financial_health_node(state: dict) -> dict:
     prompt = f"""
 You are a financial health analyst. Analyze the financial health of the company.
 
-Financial Analysis Tools Available:
-{chr(10).join([f"- {name}: {tool['description']}" for name, tool in get_available_tools().items()][:5])}
-
 Document Information:
 {context}
 
@@ -396,19 +384,13 @@ Provide analysis using these metrics if available:
 3. Current Ratio (liquidity)
 4. Growth Rate (expansion)
 
-Use the financial tools to calculate and explain each metric.
+Explain each metric and what it means for the company's financial health.
 Format: "Metric: VALUE - Interpretation: MEANING"
 """
 
     try:
         response = invoke_with_retry(get_llm(), prompt, max_retries=1)
         answer = _extract_text(response.content)
-
-        # Log tool usage
-        logger.info("✓ Financial Health Agent used financial calculation tools")
-
-        # Add tool note
-        answer = f"{answer}\n\n**Note:** This analysis used automated financial calculation tools for accuracy."
 
     except Exception as e:
         logger.error(f"Financial health agent error: {e}")
