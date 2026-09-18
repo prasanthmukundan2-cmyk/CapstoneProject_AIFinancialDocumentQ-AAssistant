@@ -1,12 +1,39 @@
 import time
 import os
 import json
+import logging
 from pathlib import Path
 from datetime import datetime
 
 import streamlit as st
 from langchain_core.messages import HumanMessage
 from pypdf import PdfReader
+
+# ============================================================
+# LOGGING CONFIGURATION - SAVE LOGS TO FILE
+# ============================================================
+
+# Create logs directory if it doesn't exist
+log_dir = Path("logs")
+log_dir.mkdir(exist_ok=True)
+
+# Configure logging to save to both file and console
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        # File handler - saves all logs to disk
+        logging.FileHandler(log_dir / "app.log"),
+        # Console handler - also shows in terminal
+        logging.StreamHandler()
+    ]
+)
+
+# Get logger for this module
+logger = logging.getLogger(__name__)
+logger.info("="*80)
+logger.info("APPLICATION STARTED")
+logger.info("="*80)
 
 from src.workflow_optimized import create_optimized_workflow
 from src.cache_manager import get_cached_response, cache_response, clear_cache
@@ -373,10 +400,17 @@ with tab1:
                     st.success(f"✅ Loaded: {uploaded_file.name}")
                     st.info(f"📄 File size: {metadata['file_size']/1024:.1f} KB | Words: ~{len(text_content.split())}")
 
+                    # Log document upload
+                    logger.info(f"📄 DOCUMENT UPLOADED: {uploaded_file.name}")
+                    logger.info(f"   File size: {metadata['file_size']/1024:.1f} KB")
+                    logger.info(f"   Word count: {len(text_content.split())}")
+
                     # Rebuild vector store with new file
                     with st.spinner("🔄 Indexing document for search..."):
+                        logger.info(f"🔄 Rebuilding vector store for: {uploaded_file.name}")
                         rebuild_vectorstore()
                     st.success("✅ Document indexed successfully!")
+                    logger.info(f"✅ Vector store rebuilt successfully")
 
                     # Show current loaded documents
                     st.info(f"📁 **Total documents loaded:** {len(st.session_state.uploaded_documents)}")
@@ -538,6 +572,10 @@ with tab1:
 
     # Process question
     if question:
+        # Log incoming question
+        logger.info("-" * 80)
+        logger.info(f"❓ NEW QUESTION RECEIVED: {question[:100]}...")
+
         # Get current conversation reference
         current_conv = st.session_state.conversations[st.session_state.current_conversation_id]
 
