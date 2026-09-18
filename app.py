@@ -293,23 +293,14 @@ with st.sidebar:
 
     st.divider()
 
-    # ========== API KEY CONFIGURATION ==========
+    # ========== API KEY STATUS ==========
     st.subheader("🔑 API Configuration")
-    api_key = st.text_input(
-        "Google Gemini API Key",
-        type="password",
-        help="Enter your API key from console.cloud.google.com"
-    )
-
-    if api_key:
-        os.environ["GOOGLE_API_KEY"] = api_key
-        st.session_state.api_key_set = True
-        st.success("✅ API key configured")
-    elif os.getenv("GOOGLE_API_KEY"):
-        st.success("✅ API key from .env file")
+    if os.getenv("GOOGLE_API_KEY"):
+        st.success("✅ API key configured from .env file")
         st.session_state.api_key_set = True
     else:
-        st.warning("⚠️ No API key set. Enter one above or set GOOGLE_API_KEY in .env")
+        st.error("❌ No API key found. Please set GOOGLE_API_KEY in your .env file")
+        st.session_state.api_key_set = False
 
     st.divider()
 
@@ -773,7 +764,7 @@ This is an **investment-related question** that requires human review.
                 update_conversation_timestamp(current_conv)
 
         elif not st.session_state.api_key_set:
-            st.error("❌ API key not configured. Set it in the sidebar first!")
+            st.error("❌ API key not configured. Please set GOOGLE_API_KEY in your .env file")
 
         else:
             with st.chat_message("assistant"):
