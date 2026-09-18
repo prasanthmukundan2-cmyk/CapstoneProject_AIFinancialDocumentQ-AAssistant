@@ -581,17 +581,20 @@ with tab1:
                             # Display which agent is processing
                             st.info(f"🤖 Agent: {agent_used}")
 
-                            # Use workflow to generate document (with timeout handling)
-                            result = st.session_state.workflow.invoke(
-                                {
-                                    "messages": [HumanMessage(content=f"Create a {agent_used.lower()} document for: {question}\n\nContext: {doc_text[:1500]}")],
-                                    "question": question,
-                                    "document_context": doc_text[:1500],
-                                },
-                                config={"configurable": {"thread_id": f"doc_gen_{doc_name}"}},
-                            )
+                            # Use LLM directly (simpler, no workflow overhead)
+                            llm = get_llm()
 
-                            document_content = result.get("answer", "Unable to generate document")
+                            prompt = f"""Create a professional {agent_used.lower()} document.
+
+Question: {question}
+
+Context from document:
+{doc_text[:1500]}
+
+Generate a detailed, well-formatted document:"""
+
+                            response = invoke_with_retry(llm, prompt, max_retries=2)
+                            document_content = _extract_text(response.content) if hasattr(response, 'content') else str(response)
 
                         except Exception as e:
                             error_msg = str(e)
