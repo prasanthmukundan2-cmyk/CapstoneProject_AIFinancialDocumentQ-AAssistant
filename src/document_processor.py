@@ -58,6 +58,7 @@ class DocumentProcessor:
         - PDF files
         - TXT files
         - XLSX/XLS files (Excel)
+        - CSV files
         """
         try:
             suffix = file_path.suffix.lower()
@@ -70,8 +71,10 @@ class DocumentProcessor:
                 if not EXCEL_SUPPORT:
                     raise ValueError("Excel support not available. Install openpyxl: pip install openpyxl")
                 return self._extract_from_excel(file_path)
+            elif suffix == ".csv":
+                return self._extract_from_csv(file_path)
             else:
-                raise ValueError(f"Unsupported file type: {suffix}. Supported: .pdf, .txt, .xlsx, .xls")
+                raise ValueError(f"Unsupported file type: {suffix}. Supported: .pdf, .txt, .xlsx, .xls, .csv")
 
         except Exception as e:
             logger.error(f"Error extracting text: {e}")
@@ -148,6 +151,27 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Excel extraction error: {type(e).__name__}: {e}")
             raise ValueError(f"Failed to extract Excel file: {str(e)}")
+
+    def _extract_from_csv(self, file_path: Path) -> str:
+        """Extract text from CSV file"""
+        try:
+            logger.info(f"Starting CSV extraction from: {file_path}")
+            text = ""
+
+            with open(file_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+
+            text = "CSV DATA\n"
+            text += f"{'='*50}\n"
+            for line_num, line in enumerate(lines, 1):
+                text += f"{line}"
+
+            logger.info(f"Successfully extracted {len(lines)} rows from CSV")
+            return text
+
+        except Exception as e:
+            logger.error(f"CSV extraction error: {type(e).__name__}: {e}")
+            raise ValueError(f"Failed to extract CSV file: {str(e)}")
 
     def process_document(self, uploaded_file) -> Tuple[str, str, Dict]:
         """

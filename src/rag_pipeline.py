@@ -62,7 +62,7 @@ def build_vector_store():
         uploaded_files = [
             os.path.join(UPLOADED_DIR, f)
             for f in os.listdir(UPLOADED_DIR)
-            if f.lower().endswith(('.pdf', '.txt'))
+            if f.lower().endswith(('.pdf', '.txt', '.csv', '.xlsx', '.xls'))
         ]
 
         for file_path in uploaded_files:
@@ -82,6 +82,34 @@ def build_vector_store():
                         )
                         documents.append(doc)
                         print(f"✓ Loaded: {os.path.basename(file_path)}")
+                elif file_path.lower().endswith('.csv'):
+                    try:
+                        docs = CSVLoader(file_path).load()
+                        for doc in docs:
+                            doc.metadata["source_file"] = os.path.basename(file_path)
+                        documents.extend(docs)
+                        print(f"✓ Loaded: {os.path.basename(file_path)}")
+                    except Exception as csv_error:
+                        print(f"Error loading CSV {os.path.basename(file_path)}: {csv_error}")
+                elif file_path.lower().endswith(('.xlsx', '.xls')):
+                    try:
+                        import openpyxl
+                        from langchain_core.documents import Document
+                        workbook = openpyxl.load_workbook(file_path, data_only=True)
+                        for sheet_name in workbook.sheetnames:
+                            worksheet = workbook[sheet_name]
+                            text = f"Sheet: {sheet_name}\n"
+                            for row in worksheet.iter_rows(values_only=True):
+                                text += " | ".join(str(cell) if cell is not None else "" for cell in row) + "\n"
+                            doc = Document(
+                                page_content=text,
+                                metadata={"source_file": os.path.basename(file_path), "sheet": sheet_name}
+                            )
+                            documents.append(doc)
+                        workbook.close()
+                        print(f"✓ Loaded: {os.path.basename(file_path)}")
+                    except Exception as excel_error:
+                        print(f"Error loading Excel {os.path.basename(file_path)}: {excel_error}")
             except Exception as e:
                 print(f"Error loading {file_path}: {e}")
 

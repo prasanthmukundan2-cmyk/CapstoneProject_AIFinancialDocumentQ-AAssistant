@@ -358,10 +358,10 @@ with tab1:
                 st.session_state.uploader_key = 0
 
             uploaded_file = st.file_uploader(
-                "Choose document(s) (PDF, TXT, or Excel)",
-                type=["pdf", "txt", "xlsx", "xls"],
+                "Choose document(s) (PDF, TXT, Excel, or CSV)",
+                type=["pdf", "txt", "xlsx", "xls", "csv"],
                 key=f"chat_uploader_{st.session_state.uploader_key}",
-                help="Upload financial documents (PDF, TXT, or Excel files) to ask questions about them"
+                help="Upload financial documents (PDF, TXT, Excel, or CSV files) to ask questions about them"
             )
 
         with col_side:
