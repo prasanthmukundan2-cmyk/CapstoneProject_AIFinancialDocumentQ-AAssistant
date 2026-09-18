@@ -14,6 +14,12 @@ from src.document_processor import process_upload
 from src.retry_utils import invoke_with_retry
 from src.agents_fixed import get_llm, _extract_text
 from src.rag_pipeline import rebuild_vectorstore
+from src.conversation_manager import (
+    create_conversation,
+    create_conversation_id,
+    generate_title_from_question,
+    update_conversation_timestamp,
+)
 
 
 # ============================================================
@@ -146,6 +152,22 @@ st.markdown("""
         border-radius: 8px;
         border: 1px solid #444;
     }
+
+    /* Chat input styling - ensure it stays at bottom */
+    .stChatInputContainer {
+        background-color: #0e1117 !important;
+        border-top: 1px solid #444 !important;
+        border-radius: 8px;
+        padding: 1rem !important;
+        margin: 1rem 0 0 0 !important;
+    }
+
+    .stChatInputContainer input {
+        border-radius: 8px !important;
+        border: 1px solid #444 !important;
+        background-color: #161b22 !important;
+        color: #c9d1d9 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -157,12 +179,7 @@ st.markdown("""
 if "workflow" not in st.session_state:
     st.session_state.workflow = create_optimized_workflow()
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "api_key_set" not in st.session_state:
-    st.session_state.api_key_set = bool(os.getenv("GOOGLE_API_KEY"))
-
+# Document state (shared across all conversations)
 if "uploaded_documents" not in st.session_state:
     st.session_state.uploaded_documents = {}
 
@@ -172,15 +189,96 @@ if "current_document" not in st.session_state:
 if "comparison_docs" not in st.session_state:
     st.session_state.comparison_docs = []
 
+# Conversation state (one conversation at a time)
+if "conversations" not in st.session_state:
+    st.session_state.conversations = {}
+
+if "current_conversation_id" not in st.session_state:
+    # Create initial conversation
+    initial_conv = create_conversation("Conversation 1")
+    st.session_state.conversations[initial_conv["id"]] = initial_conv
+    st.session_state.current_conversation_id = initial_conv["id"]
+
+# API key state
+if "api_key_set" not in st.session_state:
+    st.session_state.api_key_set = bool(os.getenv("GOOGLE_API_KEY"))
+
 
 # ============================================================
 # SIDEBAR
 # ============================================================
 
 with st.sidebar:
-    st.title("⚙️ Settings & Info")
+    st.title("⚙️ Settings & Conversations")
 
-    # API Key Configuration
+    # ========== CONVERSATION MANAGEMENT ==========
+    st.subheader("💬 Conversations")
+
+    # New Chat Button
+    if st.button("➕ New Chat", use_container_width=True, key="new_chat_sidebar"):
+        # Create new conversation
+        new_conv = create_conversation("Conversation " + str(len(st.session_state.conversations) + 1))
+        st.session_state.conversations[new_conv["id"]] = new_conv
+        st.session_state.current_conversation_id = new_conv["id"]
+
+        # Clear all document state
+        st.session_state.uploaded_documents = {}
+        st.session_state.current_document = None
+        st.session_state.comparison_docs = []
+        st.session_state.show_comparison = False
+
+        # Reset file uploader widget key to clear its cache
+        if "uploader_key" not in st.session_state:
+            st.session_state.uploader_key = 0
+        st.session_state.uploader_key += 1
+
+        # Clean up uploaded files from disk
+        import shutil
+        uploaded_dir = Path("data/uploaded")
+        if uploaded_dir.exists():
+            try:
+                shutil.rmtree(uploaded_dir)
+                uploaded_dir.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                print(f"Error clearing uploaded directory: {e}")
+
+        st.rerun()
+
+    st.divider()
+
+    # List conversations
+    if st.session_state.conversations:
+        st.markdown("**Your Conversations:**")
+
+        for conv_id, conv in sorted(
+            st.session_state.conversations.items(),
+            key=lambda x: x[1].get("updated_at", ""),
+            reverse=True
+        ):
+            is_active = conv_id == st.session_state.current_conversation_id
+
+            # Create a clickable conversation item
+            col1, col2 = st.columns([4, 1])
+
+            with col1:
+                title_display = conv.get("title", "Untitled")
+                msg_count = len(conv.get("messages", []))
+                display_text = f"{title_display}"
+                if msg_count > 0:
+                    display_text += f" ({msg_count})"
+
+                if st.button(
+                    display_text,
+                    use_container_width=True,
+                    key=f"conv_{conv_id}",
+                    help=f"Switch to this conversation"
+                ):
+                    st.session_state.current_conversation_id = conv_id
+                    st.rerun()
+
+    st.divider()
+
+    # ========== API KEY CONFIGURATION ==========
     st.subheader("🔑 API Configuration")
     api_key = st.text_input(
         "Google Gemini API Key",
@@ -200,24 +298,22 @@ with st.sidebar:
 
     st.divider()
 
-    # Cache Management
+    # ========== CACHE MANAGEMENT ==========
     st.subheader("💾 Cache Management")
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Clear Cache"):
             clear_cache()
             st.success("Cache cleared!")
-    with col2:
-        st.caption(f"Messages: {len(st.session_state.messages)}")
 
-    # Clear Chat History
-    if st.button("🗑️ Clear Chat"):
-        st.session_state.messages = []
-        st.rerun()
+    current_conv = st.session_state.conversations.get(st.session_state.current_conversation_id, {})
+    msg_count = len(current_conv.get("messages", []))
+    with col2:
+        st.caption(f"Messages: {msg_count}")
 
     st.divider()
 
-    # Info
+    # ========== INFO ==========
     st.subheader("ℹ️ Info")
     st.markdown("""
     **Financial RAG Assistant v1.0**
@@ -257,11 +353,15 @@ with tab1:
         col_main, col_side = st.columns([3, 1])
 
         with col_main:
+            # Initialize uploader key if not exists
+            if "uploader_key" not in st.session_state:
+                st.session_state.uploader_key = 0
+
             uploaded_file = st.file_uploader(
-                "Choose document(s) (PDF or TXT)",
-                type=["pdf", "txt"],
-                key="chat_uploader",
-                help="Upload financial documents to ask questions about them"
+                "Choose document(s) (PDF, TXT, or Excel)",
+                type=["pdf", "txt", "xlsx", "xls"],
+                key=f"chat_uploader_{st.session_state.uploader_key}",
+                help="Upload financial documents (PDF, TXT, or Excel files) to ask questions about them"
             )
 
         with col_side:
@@ -363,56 +463,75 @@ with tab1:
 
     # Action buttons
     if st.session_state.uploaded_documents:
-        col_actions = st.columns([1, 1, 1])
+        col_actions = st.columns([1, 1])
 
         with col_actions[0]:
-            if st.button("🔄 New Chat", use_container_width=True, help="Clear chat and start fresh"):
-                st.session_state.messages = []
-                st.rerun()
-
-        with col_actions[1]:
             if st.button("📤 New Document", use_container_width=True, help="Upload another document"):
                 st.session_state.uploaded_documents = {}
                 st.session_state.current_document = None
-                st.session_state.messages = []
+                st.session_state.comparison_docs = []
+                st.session_state.show_comparison = False
+
+                # Clean up uploaded files from disk
+                import shutil
+                uploaded_dir = Path("data/uploaded")
+                if uploaded_dir.exists():
+                    try:
+                        shutil.rmtree(uploaded_dir)
+                        uploaded_dir.mkdir(parents=True, exist_ok=True)
+                    except Exception as e:
+                        print(f"Error clearing uploaded directory: {e}")
+
                 st.rerun()
 
-        with col_actions[2]:
+        with col_actions[1]:
             if st.button("🗑️ Clear All", use_container_width=True, help="Remove all documents"):
                 st.session_state.uploaded_documents = {}
                 st.session_state.current_document = None
-                st.session_state.messages = []
                 st.session_state.comparison_docs = []
+                st.session_state.show_comparison = False
+
+                # Clean up uploaded files from disk
+                import shutil
+                uploaded_dir = Path("data/uploaded")
+                if uploaded_dir.exists():
+                    try:
+                        shutil.rmtree(uploaded_dir)
+                        uploaded_dir.mkdir(parents=True, exist_ok=True)
+                    except Exception as e:
+                        print(f"Error clearing uploaded directory: {e}")
+
                 st.rerun()
 
-    # Chat messages container
+    # Get current conversation
+    current_conv = st.session_state.conversations[st.session_state.current_conversation_id]
+
+    # Messages display area
     st.markdown("---")
-    messages_container = st.container()
 
-    with messages_container:
-        if not st.session_state.messages and not st.session_state.uploaded_documents:
-            st.info("💡 Upload a financial document to get started!")
-        else:
-            # Display existing messages
-            for message in st.session_state.messages:
-                with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
+    if not current_conv["messages"] and not st.session_state.uploaded_documents:
+        st.info("💡 Upload a financial document to get started!")
+    else:
+        # Display existing messages
+        for message in current_conv["messages"]:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-                    if message["role"] == "assistant" and "metadata" in message:
-                        with st.expander("📋 Details"):
-                            meta = message["metadata"]
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.metric("Agent", meta.get("agent", "N/A"))
-                            with col2:
-                                st.metric("Time", f"{meta.get('time', 0):.1f}s")
-                            with col3:
-                                st.metric("Cached", "✅ Yes" if meta.get("cached") else "No")
+                if message["role"] == "assistant" and "metadata" in message:
+                    with st.expander("📋 Details"):
+                        meta = message["metadata"]
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Agent", meta.get("agent", "N/A"))
+                        with col2:
+                            st.metric("Time", f"{meta.get('time', 0):.1f}s")
+                        with col3:
+                            st.metric("Cached", "✅ Yes" if meta.get("cached") else "No")
 
-                            if meta.get("sources"):
-                                st.markdown("**Sources:**")
-                                for src in meta["sources"]:
-                                    st.caption(f"📄 {src}")
+                        if meta.get("sources"):
+                            st.markdown("**Sources:**")
+                            for src in meta["sources"]:
+                                st.caption(f"📄 {src}")
 
     # Show helpful tips for multi-document comparison
     if len(st.session_state.uploaded_documents) > 1:
@@ -420,7 +539,7 @@ with tab1:
             "💡 **Tip:** Try asking: *'Compare the revenue'* for automatic comparison!"
         )
 
-    # Chat input
+    # Chat input (appears at bottom of page)
     if st.session_state.current_document:
         question = st.chat_input(placeholder=f"Ask about {st.session_state.current_document}...")
     else:
@@ -432,8 +551,16 @@ with tab1:
 
     # Process question
     if question:
+        # Get current conversation reference
+        current_conv = st.session_state.conversations[st.session_state.current_conversation_id]
+
+        # Generate title from first question if not set
+        if not current_conv["messages"] and current_conv["title"].startswith("Conversation"):
+            current_conv["title"] = generate_title_from_question(question)
+
         # Add user message
-        st.session_state.messages.append({"role": "user", "content": question})
+        current_conv["messages"].append({"role": "user", "content": question})
+        update_conversation_timestamp(current_conv)
 
         with st.chat_message("user"):
             st.markdown(question)
@@ -441,17 +568,66 @@ with tab1:
         # Check if it's an investment question
         if detect_investment_question(question):
             with st.chat_message("assistant"):
-                investment_response = get_investment_response(question)
-                st.markdown(investment_response["answer"])
+                # First, analyze the document if available
+                analysis = ""
+                suggestion = ""
 
-                st.session_state.messages.append({
+                if st.session_state.current_document and st.session_state.uploaded_documents:
+                    with st.spinner("📊 Analyzing company for investment assessment..."):
+                        try:
+                            doc_data = st.session_state.uploaded_documents[st.session_state.current_document]
+                            doc_text = doc_data["text"]
+                            doc_name = doc_data["metadata"]["file_name"]
+
+                            # Get company analysis
+                            result = st.session_state.workflow.invoke(
+                                {
+                                    "messages": [HumanMessage(content=f"Based on {doc_name}, provide a brief investment analysis. Include: 1) Company overview, 2) Financial health, 3) Key risks, 4) Investment potential")],
+                                    "question": question,
+                                    "document_context": doc_text[:5000],
+                                },
+                                config={"configurable": {"thread_id": f"investment_{doc_name}"}},
+                            )
+
+                            analysis = result.get("answer", "Unable to generate analysis")
+
+                        except Exception as e:
+                            analysis = f"Could not analyze document: {str(e)[:100]}"
+
+                # Display analysis if available
+                if analysis:
+                    st.markdown("### 📊 Company Analysis")
+                    st.markdown(analysis)
+                    st.markdown("---")
+
+                # Display human approval message
+                approval_message = """
+### 🔐 HUMAN APPROVAL REQUIRED
+
+This is an **investment-related question** that requires human review.
+
+**⚠️ Important:** This system cannot provide direct investment advice. The analysis above is for informational purposes only.
+
+**What Happens Next:**
+1. Your question and analysis have been flagged for review
+2. A qualified financial analyst will examine this request
+3. You will receive guidance within 24 hours
+4. You will be notified when the review is complete
+
+**Disclaimer:** Always consult with a qualified financial advisor before making investment decisions.
+                """
+                st.markdown(approval_message)
+
+                current_conv["messages"].append({
                     "role": "assistant",
-                    "content": investment_response["answer"],
+                    "content": (analysis + "\n\n" + approval_message) if analysis else approval_message,
                     "metadata": {
-                        "agent": "human_approval",
+                        "agent": "investment_analysis",
                         "requires_approval": True,
+                        "analysis_provided": bool(analysis),
                     }
                 })
+                update_conversation_timestamp(current_conv)
 
         elif not st.session_state.api_key_set:
             st.error("❌ API key not configured. Set it in the sidebar first!")
@@ -463,67 +639,180 @@ with tab1:
 
                 # If document is uploaded, use simple document Q&A
                 if st.session_state.current_document and st.session_state.uploaded_documents:
-                    placeholder = st.empty()
-                    with placeholder.container():
-                        if comparing:
-                            st.spinner("📊 Comparing documents...")
-                        else:
-                            st.spinner("🔍 Analyzing document...")
+                    if comparing:
+                        status_text = "📊 Comparing documents..."
+                    else:
+                        status_text = "🔍 Analyzing document..."
 
-                    try:
-                        start_time = time.perf_counter()
+                    with st.spinner(status_text):
+                        try:
+                            start_time = time.perf_counter()
 
-                        doc_data = st.session_state.uploaded_documents[st.session_state.current_document]
-                        doc_text = doc_data["text"]
-                        doc_name = doc_data["metadata"]["file_name"]
+                            doc_data = st.session_state.uploaded_documents[st.session_state.current_document]
+                            doc_text = doc_data["text"]
+                            doc_name = doc_data["metadata"]["file_name"]
 
-                        # Check cache first
-                        cache_key = f"{doc_name}:{question}"
-                        cached = get_cached_response(cache_key)
+                            # Check cache first
+                            cache_key = f"{doc_name}:{question}"
+                            cached = get_cached_response(cache_key)
 
-                        if cached:
-                            placeholder.empty()
-                            st.markdown(cached["answer"])
-                            st.info("✅ Cached result")
+                            if cached:
+                                st.markdown(cached["answer"])
+                                st.info("✅ Cached result")
 
-                            st.session_state.messages.append({
-                                "role": "assistant",
-                                "content": cached["answer"],
-                                "metadata": {
-                                    "agent": cached.get("agent", "cached"),
-                                    "time": 0.1,
-                                    "cached": True,
-                                    "sources": [doc_name],
-                                }
-                            })
-                        else:
-                            # Use parallel agents workflow with document context
+                                current_conv["messages"].append({
+                                    "role": "assistant",
+                                    "content": cached["answer"],
+                                    "metadata": {
+                                        "agent": cached.get("agent", "cached"),
+                                        "time": 0.1,
+                                        "cached": True,
+                                        "sources": [doc_name],
+                                    }
+                                })
+                                update_conversation_timestamp(current_conv)
+                            else:
+                                # Use parallel agents workflow with document context
+                                try:
+                                    result = st.session_state.workflow.invoke(
+                                        {
+                                            "messages": [HumanMessage(content=f"Based on {doc_name}: {question}")],
+                                            "question": question,
+                                            "document_context": doc_text[:5000],
+                                        },
+                                        config={"configurable": {"thread_id": f"doc_chat_{doc_name}"}},
+                                    )
+
+                                    execution_time = time.perf_counter() - start_time
+
+                                    answer = result.get("answer", "No answer generated.")
+                                    agent = result.get("agent", "retrieval_agent")
+                                    sources = [doc_name] + result.get("sources", [])
+
+                                    # Cache the response
+                                    cache_response(cache_key, {
+                                        "answer": answer,
+                                        "agent": agent,
+                                        "sources": sources,
+                                    })
+
+                                    st.markdown(answer)
+
+                                    with st.expander("📋 Details"):
+                                        col1, col2, col3 = st.columns(3)
+                                        with col1:
+                                            st.metric("Agent", agent)
+                                        with col2:
+                                            st.metric("Time", f"{execution_time:.1f}s")
+                                        with col3:
+                                            st.metric("Sources", len(sources))
+
+                                        if sources:
+                                            st.markdown("**Retrieved from:**")
+                                            for src in sources:
+                                                st.caption(f"📄 {src}")
+
+                                    # Cache and store response
+                                    current_conv["messages"].append({
+                                        "role": "assistant",
+                                        "content": answer,
+                                        "metadata": {
+                                            "agent": agent,
+                                            "time": execution_time,
+                                            "cached": False,
+                                            "sources": sources,
+                                        }
+                                    })
+                                    update_conversation_timestamp(current_conv)
+
+                                except Exception as workflow_error:
+                                    error_msg = str(workflow_error)
+
+                                    if "rate" in error_msg.lower():
+                                        st.error("""
+                                        🚫 **API Rate Limit Exceeded**
+
+                                        The parallel agent workflow hit the API rate limit.
+
+                                        **Why this happens:**
+                                        - Free tier has low limits (~60 req/min)
+                                        - 6 parallel agents = 6 API calls at once
+                                        - Even fresh API key hits limit quickly
+
+                                        **Solutions:**
+                                        1. ⏳ **Wait 30 seconds and retry** (quota recovers)
+                                        2. 💳 **Upgrade to Paid API** (~$5-20):
+                                           - Go to console.cloud.google.com
+                                           - Add billing
+                                           - Get 600+ requests/minute
+                                           - Parallel agents work perfectly
+                                        3. 🔑 **Create new API key** (temporary):
+                                           - Creates new project with fresh quota
+                                           - Works for a few hours
+
+                                        **For Capstone Demo:**
+                                        Upgrading to paid tier is recommended to show
+                                        parallel execution working as designed.
+                                        """)
+                                    else:
+                                        st.error(f"Error: {error_msg[:100]}")
+
+                        except Exception as e:
+                            error_msg = str(e)
+                            if "rate" in error_msg.lower():
+                                st.error("⚠️ API rate limit. Please wait a moment and try again.")
+                            else:
+                                st.error(f"Error: {error_msg[:100]}")
+
+                # Or use regular workflow for general questions
+                else:
+                    cached = get_cached_response(question)
+
+                    if cached:
+                        st.markdown(cached["answer"])
+                        st.info("✅ Cached response (faster)")
+
+                        current_conv["messages"].append({
+                            "role": "assistant",
+                            "content": cached["answer"],
+                            "metadata": {
+                                "agent": cached.get("agent", "cached"),
+                                "time": 0.1,
+                                "cached": True,
+                                "sources": cached.get("sources", []),
+                            }
+                        })
+                        update_conversation_timestamp(current_conv)
+                    else:
+                        with st.spinner("⏳ Analyzing... (may take 10-30 seconds)"):
                             try:
+                                start_time = time.perf_counter()
+
                                 result = st.session_state.workflow.invoke(
                                     {
-                                        "messages": [HumanMessage(content=f"Based on {doc_name}: {question}")],
+                                        "messages": [HumanMessage(content=question)],
                                         "question": question,
-                                        "document_context": doc_text[:5000],
                                     },
-                                    config={"configurable": {"thread_id": f"doc_chat_{doc_name}"}},
+                                    config={"configurable": {"thread_id": "financial_chat"}},
                                 )
 
                                 execution_time = time.perf_counter() - start_time
 
                                 answer = result.get("answer", "No answer generated.")
-                                agent = result.get("agent", "retrieval_agent")
-                                sources = [doc_name] + result.get("sources", [])
+                                agent = result.get("agent", "unknown")
+                                sources = result.get("sources", [])
 
                                 # Cache the response
-                                cache_response(cache_key, {
+                                cache_response(question, {
                                     "answer": answer,
                                     "agent": agent,
                                     "sources": sources,
                                 })
 
-                                placeholder.empty()
+                                # Display answer
                                 st.markdown(answer)
 
+                                # Show details
                                 with st.expander("📋 Details"):
                                     col1, col2, col3 = st.columns(3)
                                     with col1:
@@ -538,8 +827,8 @@ with tab1:
                                         for src in sources:
                                             st.caption(f"📄 {src}")
 
-                                # Cache and store response
-                                st.session_state.messages.append({
+                                # Store in conversation
+                                current_conv["messages"].append({
                                     "role": "assistant",
                                     "content": answer,
                                     "metadata": {
@@ -549,155 +838,36 @@ with tab1:
                                         "sources": sources,
                                     }
                                 })
+                                update_conversation_timestamp(current_conv)
 
-                            except Exception as workflow_error:
-                                placeholder.empty()
-                                error_msg = str(workflow_error)
+                            except Exception as e:
+                                error_msg = str(e)
 
                                 if "rate" in error_msg.lower():
                                     st.error("""
-                                    🚫 **API Rate Limit Exceeded**
+                                    ⚠️ **API Rate Limit Exceeded**
 
-                                    The parallel agent workflow hit the API rate limit.
-
-                                    **Why this happens:**
-                                    - Free tier has low limits (~60 req/min)
-                                    - 6 parallel agents = 6 API calls at once
-                                    - Even fresh API key hits limit quickly
+                                    The Google Gemini API rate limit has been reached.
 
                                     **Solutions:**
-                                    1. ⏳ **Wait 30 seconds and retry** (quota recovers)
-                                    2. 💳 **Upgrade to Paid API** (~$5-20):
-                                       - Go to console.cloud.google.com
-                                       - Add billing
-                                       - Get 600+ requests/minute
-                                       - Parallel agents work perfectly
-                                    3. 🔑 **Create new API key** (temporary):
-                                       - Creates new project with fresh quota
-                                       - Works for a few hours
+                                    1. Wait a few minutes and try again
+                                    2. Check your API quota at console.cloud.google.com
+                                    3. Use cached responses (available for previous queries)
+                                    4. Try simpler questions
 
-                                    **For Capstone Demo:**
-                                    Upgrading to paid tier is recommended to show
-                                    parallel execution working as designed.
+                                    Try asking about cached information or come back in a few minutes.
                                     """)
                                 else:
-                                    st.error(f"Error: {error_msg[:100]}")
+                                    st.error(f"""
+                                    ❌ **Error Processing Question**
 
-                    except Exception as e:
-                        placeholder.empty()
-                        error_msg = str(e)
-                        if "rate" in error_msg.lower():
-                            st.error("⚠️ API rate limit. Please wait a moment and try again.")
-                        else:
-                            st.error(f"Error: {error_msg[:100]}")
+                                    {error_msg}
 
-                # Or use regular workflow for general questions
-                else:
-                    cached = get_cached_response(question)
-
-                    if cached:
-                        st.markdown(cached["answer"])
-                        st.info("✅ Cached response (faster)")
-
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": cached["answer"],
-                            "metadata": {
-                                "agent": cached.get("agent", "cached"),
-                                "time": 0.1,
-                                "cached": True,
-                                "sources": cached.get("sources", []),
-                            }
-                        })
-                    else:
-                        placeholder = st.empty()
-                        with placeholder.container():
-                            st.spinner("⏳ Analyzing... (may take 10-30 seconds)")
-
-                        try:
-                            start_time = time.perf_counter()
-
-                            result = st.session_state.workflow.invoke(
-                                {
-                                    "messages": [HumanMessage(content=question)],
-                                    "question": question,
-                                },
-                                config={"configurable": {"thread_id": "financial_chat"}},
-                            )
-
-                            execution_time = time.perf_counter() - start_time
-
-                            answer = result.get("answer", "No answer generated.")
-                            agent = result.get("agent", "unknown")
-                            sources = result.get("sources", [])
-
-                            # Cache the response
-                            cache_response(question, {
-                                "answer": answer,
-                                "agent": agent,
-                                "sources": sources,
-                            })
-
-                            # Display answer
-                            placeholder.empty()
-                            st.markdown(answer)
-
-                            # Show details
-                            with st.expander("📋 Details"):
-                                col1, col2, col3 = st.columns(3)
-                                with col1:
-                                    st.metric("Agent", agent)
-                                with col2:
-                                    st.metric("Time", f"{execution_time:.1f}s")
-                                with col3:
-                                    st.metric("Sources", len(sources))
-
-                                if sources:
-                                    st.markdown("**Retrieved from:**")
-                                    for src in sources:
-                                        st.caption(f"📄 {src}")
-
-                            # Store in session
-                            st.session_state.messages.append({
-                                "role": "assistant",
-                                "content": answer,
-                                "metadata": {
-                                    "agent": agent,
-                                    "time": execution_time,
-                                    "cached": False,
-                                    "sources": sources,
-                                }
-                            })
-
-                        except Exception as e:
-                            placeholder.empty()
-                            error_msg = str(e)
-
-                            if "rate" in error_msg.lower():
-                                st.error("""
-                                ⚠️ **API Rate Limit Exceeded**
-
-                                The Google Gemini API rate limit has been reached.
-
-                                **Solutions:**
-                                1. Wait a few minutes and try again
-                                2. Check your API quota at console.cloud.google.com
-                                3. Use cached responses (available for previous queries)
-                                4. Try simpler questions
-
-                                Try asking about cached information or come back in a few minutes.
-                                """)
-                            else:
-                                st.error(f"""
-                                ❌ **Error Processing Question**
-
-                                {error_msg}
-
-                                **Try:**
-                                - Rephrasing your question
-                                - Waiting a moment and retrying
-                                - Checking your API key
-                                """)
+                                    **Try:**
+                                    - Rephrasing your question
+                                    - Waiting a moment and retrying
+                                    - Checking your API key
+                                    """)
 
 
 # ============================================================

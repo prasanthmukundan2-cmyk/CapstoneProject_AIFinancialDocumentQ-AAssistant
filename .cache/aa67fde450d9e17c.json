@@ -1,0 +1,9 @@
+{
+  "answer": "Could not extract KPI data. Error: \ud83d\udeab **API Rate Limit Exceeded**\n\nThe Google Gemini API rate limit has been reached.\n\n**What to do:**\n1",
+  "agent": "kpi_agent",
+  "sources": [
+    "annual_report.pdf",
+    "Document"
+  ],
+  "cached_at": "2026-09-18T10:56:29.857922"
+}

@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1600 1200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .bg { fill: #0e1117; }
+      .tier-bg { fill: #161b22; stroke: #30363d; stroke-width: 2; stroke-dasharray: 5,5; }
+      .box { fill: #0d1117; stroke: #30363d; stroke-width: 2; }
+      .box-ui { fill: #1f6feb; stroke: #388bfd; stroke-width: 2; }
+      .box-state { fill: #238636; stroke: #3fb950; stroke-width: 2; }
+      .box-doc { fill: #a371f7; stroke: #d2a8ff; stroke-width: 2; }
+      .box-agent { fill: #fb8500; stroke: #ffa500; stroke-width: 2; }
+      .box-external { fill: #d1240e; stroke: #f85149; stroke-width: 2; }
+      .label { font-size: 16px; font-weight: 700; fill: #e6edf3; }
+      .sublabel { font-size: 13px; fill: #c9d1d9; }
+      .section-title { font-size: 18px; font-weight: 700; fill: #e6edf3; }
+      .arrow { stroke: #30363d; stroke-width: 2; fill: none; }
+      .arrow-thick { stroke: #58a6ff; stroke-width: 3; fill: none; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#30363d"/>
+    </marker>
+    <marker id="arrowhead-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#58a6ff"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="1200" class="bg"/>
+
+  <!-- TITLE -->
+  <text x="800" y="40" class="section-title" text-anchor="middle" font-size="24">Financial Document Q&amp;A RAG Assistant - Architecture</text>
+
+  <!-- TIER 1: USER INTERFACE -->
+  <rect x="20" y="70" width="1560" height="180" class="tier-bg" rx="8"/>
+  <text x="40" y="100" class="section-title">🎨 TIER 1: USER INTERFACE (Streamlit)</text>
+
+  <rect x="40" y="120" width="140" height="100" class="box-ui" rx="6"/>
+  <text x="110" y="145" class="label" text-anchor="middle">Chat Tab</text>
+  <text x="110" y="165" class="sublabel" text-anchor="middle">Messages</text>
+  <text x="110" y="180" class="sublabel" text-anchor="middle">Input/Output</text>
+  <text x="110" y="195" class="sublabel" text-anchor="middle">Spinners</text>
+
+  <rect x="210" y="120" width="140" height="100" class="box-ui" rx="6"/>
+  <text x="280" y="145" class="label" text-anchor="middle">Upload</text>
+  <text x="280" y="165" class="sublabel" text-anchor="middle">PDF/TXT/Excel</text>
+  <text x="280" y="180" class="sublabel" text-anchor="middle">File Uploader</text>
+  <text x="280" y="195" class="sublabel" text-anchor="middle">Widget</text>
+
+  <rect x="380" y="120" width="140" height="100" class="box-ui" rx="6"/>
+  <text x="450" y="145" class="label" text-anchor="middle">Sidebar</text>
+  <text x="450" y="165" class="sublabel" text-anchor="middle">Conversations</text>
+  <text x="450" y="180" class="sublabel" text-anchor="middle">API Config</text>
+  <text x="450" y="195" class="sublabel" text-anchor="middle">Cache Mgmt</text>
+
+  <rect x="550" y="120" width="140" height="100" class="box-ui" rx="6"/>
+  <text x="620" y="145" class="label" text-anchor="middle">Tabs</text>
+  <text x="620" y="165" class="sublabel" text-anchor="middle">Chat / Docs</text>
+  <text x="620" y="180" class="sublabel" text-anchor="middle">Help / Nav</text>
+  <text x="620" y="195" class="sublabel" text-anchor="middle">Expanders</text>
+
+  <rect x="720" y="120" width="140" height="100" class="box-ui" rx="6"/>
+  <text x="790" y="145" class="label" text-anchor="middle">Conversation</text>
+  <text x="790" y="165" class="sublabel" text-anchor="middle">Manager</text>
+  <text x="790" y="180" class="sublabel" text-anchor="middle">+ New Chat</text>
+  <text x="790" y="195" class="sublabel" text-anchor="middle">+ Switching</text>
+
+  <rect x="890" y="120" width="140" height="100" class="box-ui" rx="6"/>
+  <text x="960" y="145" class="label" text-anchor="middle">Metadata</text>
+  <text x="960" y="165" class="sublabel" text-anchor="middle">Display</text>
+  <text x="960" y="180" class="sublabel" text-anchor="middle">Details Panel</text>
+  <text x="960" y="195" class="sublabel" text-anchor="middle">Sources</text>
+
+  <rect x="1060" y="120" width="140" height="100" class="box-ui" rx="6"/>
+  <text x="1130" y="145" class="label" text-anchor="middle">Error</text>
+  <text x="1130" y="165" class="sublabel" text-anchor="middle">Handling</text>
+  <text x="1130" y="180" class="sublabel" text-anchor="middle">Rate Limits</text>
+  <text x="1130" y="195" class="sublabel" text-anchor="middle">Spinners</text>
+
+  <rect x="1230" y="120" width="140" height="100" class="box-ui" rx="6"/>
+  <text x="1300" y="145" class="label" text-anchor="middle">Styling</text>
+  <text x="1300" y="165" class="sublabel" text-anchor="middle">Dark Theme</text>
+  <text x="1300" y="180" class="sublabel" text-anchor="middle">CSS</text>
+  <text x="1300" y="195" class="sublabel" text-anchor="middle">Layout</text>
+
+  <!-- TIER 2: STATE MANAGEMENT -->
+  <rect x="20" y="280" width="1560" height="160" class="tier-bg" rx="8"/>
+  <text x="40" y="310" class="section-title">💾 TIER 2: STATE MANAGEMENT (Session State)</text>
+
+  <rect x="40" y="330" width="150" height="100" class="box-state" rx="6"/>
+  <text x="115" y="355" class="label" text-anchor="middle">Conversations</text>
+  <text x="115" y="375" class="sublabel" text-anchor="middle">ID | Title</text>
+  <text x="115" y="390" class="sublabel" text-anchor="middle">Messages[]</text>
+  <text x="115" y="405" class="sublabel" text-anchor="middle">created_at</text>
+
+  <rect x="230" y="330" width="150" height="100" class="box-state" rx="6"/>
+  <text x="305" y="355" class="label" text-anchor="middle">Documents</text>
+  <text x="305" y="375" class="sublabel" text-anchor="middle">uploaded_docs{}</text>
+  <text x="305" y="390" class="sublabel" text-anchor="middle">current_doc</text>
+  <text x="305" y="405" class="sublabel" text-anchor="middle">comparison_docs</text>
+
+  <rect x="420" y="330" width="150" height="100" class="box-state" rx="6"/>
+  <text x="495" y="355" class="label" text-anchor="middle">Session</text>
+  <text x="495" y="375" class="sublabel" text-anchor="middle">workflow</text>
+  <text x="495" y="390" class="sublabel" text-anchor="middle">api_key_set</text>
+  <text x="495" y="405" class="sublabel" text-anchor="middle">uploader_key</text>
+
+  <rect x="610" y="330" width="150" height="100" class="box-state" rx="6"/>
+  <text x="685" y="355" class="label" text-anchor="middle">Conversation</text>
+  <text x="685" y="375" class="sublabel" text-anchor="middle">current_</text>
+  <text x="685" y="390" class="sublabel" text-anchor="middle">conversation_id</text>
+  <text x="685" y="405" class="sublabel" text-anchor="middle">(active one)</text>
+
+  <rect x="800" y="330" width="150" height="100" class="box-state" rx="6"/>
+  <text x="875" y="355" class="label" text-anchor="middle">Comparison</text>
+  <text x="875" y="375" class="sublabel" text-anchor="middle">compare_mode</text>
+  <text x="875" y="390" class="sublabel" text-anchor="middle">show_comparison</text>
+  <text x="875" y="405" class="sublabel" text-anchor="middle">comparison_docs[]</text>
+
+  <rect x="990" y="330" width="150" height="100" class="box-state" rx="6"/>
+  <text x="1065" y="355" class="label" text-anchor="middle">Cache</text>
+  <text x="1065" y="375" class="sublabel" text-anchor="middle">API Responses</text>
+  <text x="1065" y="390" class="sublabel" text-anchor="middle">In-Memory</text>
+  <text x="1065" y="405" class="sublabel" text-anchor="middle">Key-Value</text>
+
+  <rect x="1180" y="330" width="150" height="100" class="box-state" rx="6"/>
+  <text x="1255" y="355" class="label" text-anchor="middle">Conversation</text>
+  <text x="1255" y="375" class="sublabel" text-anchor="middle">Manager</text>
+  <text x="1255" y="390" class="sublabel" text-anchor="middle">Generate titles</text>
+  <text x="1255" y="405" class="sublabel" text-anchor="middle">Timestamps</text>
+
+  <!-- TIER 3: DOCUMENT PROCESSING & RAG -->
+  <rect x="20" y="480" width="1560" height="210" class="tier-bg" rx="8"/>
+  <text x="40" y="510" class="section-title">📄 TIER 3: DOCUMENT PROCESSING &amp; RAG PIPELINE</text>
+
+  <rect x="40" y="540" width="130" height="130" class="box-doc" rx="6"/>
+  <text x="105" y="565" class="label" text-anchor="middle">File Upload</text>
+  <text x="105" y="585" class="sublabel" text-anchor="middle">PDF</text>
+  <text x="105" y="600" class="sublabel" text-anchor="middle">TXT</text>
+  <text x="105" y="615" class="sublabel" text-anchor="middle">Excel</text>
+  <text x="105" y="630" class="sublabel" text-anchor="middle">(XLSX/XLS)</text>
+
+  <rect x="210" y="540" width="130" height="130" class="box-doc" rx="6"/>
+  <text x="275" y="565" class="label" text-anchor="middle">Document</text>
+  <text x="275" y="585" class="sublabel" text-anchor="middle">Processor</text>
+  <text x="275" y="600" class="sublabel" text-anchor="middle">Extract Text</text>
+  <text x="275" y="615" class="sublabel" text-anchor="middle">Parse Content</text>
+  <text x="275" y="630" class="sublabel" text-anchor="middle">Metadata</text>
+
+  <rect x="380" y="540" width="130" height="130" class="box-doc" rx="6"/>
+  <text x="445" y="565" class="label" text-anchor="middle">Text Split</text>
+  <text x="445" y="585" class="sublabel" text-anchor="middle">Chunking</text>
+  <text x="445" y="600" class="sublabel" text-anchor="middle">Recursive Split</text>
+  <text x="445" y="615" class="sublabel" text-anchor="middle">Overlap</text>
+  <text x="445" y="630" class="sublabel" text-anchor="middle">Tokens</text>
+
+  <rect x="550" y="540" width="130" height="130" class="box-doc" rx="6"/>
+  <text x="615" y="565" class="label" text-anchor="middle">Embeddings</text>
+  <text x="615" y="585" class="sublabel" text-anchor="middle">Google Gemini</text>
+  <text x="615" y="600" class="sublabel" text-anchor="middle">Text→Vector</text>
+  <text x="615" y="615" class="sublabel" text-anchor="middle">768D</text>
+  <text x="615" y="630" class="sublabel" text-anchor="middle">Vectors</text>
+
+  <rect x="720" y="540" width="130" height="130" class="box-doc" rx="6"/>
+  <text x="785" y="565" class="label" text-anchor="middle">FAISS DB</text>
+  <text x="785" y="585" class="sublabel" text-anchor="middle">Vector Store</text>
+  <text x="785" y="600" class="sublabel" text-anchor="middle">Similarity</text>
+  <text x="785" y="615" class="sublabel" text-anchor="middle">Search</text>
+  <text x="785" y="630" class="sublabel" text-anchor="middle">K-NN</text>
+
+  <rect x="890" y="540" width="130" height="130" class="box-doc" rx="6"/>
+  <text x="955" y="565" class="label" text-anchor="middle">RAG</text>
+  <text x="955" y="585" class="sublabel" text-anchor="middle">Pipeline</text>
+  <text x="955" y="600" class="sublabel" text-anchor="middle">Retrieve Top K</text>
+  <text x="955" y="615" class="sublabel" text-anchor="middle">Context</text>
+  <text x="955" y="630" class="sublabel" text-anchor="middle">Augmentation</text>
+
+  <rect x="1060" y="540" width="130" height="130" class="box-doc" rx="6"/>
+  <text x="1125" y="565" class="label" text-anchor="middle">Rebuild</text>
+  <text x="1125" y="585" class="sublabel" text-anchor="middle">Vector Store</text>
+  <text x="1125" y="600" class="sublabel" text-anchor="middle">On Upload</text>
+  <text x="1125" y="615" class="sublabel" text-anchor="middle">Create Index</text>
+  <text x="1125" y="630" class="sublabel" text-anchor="middle">Persistence</text>
+
+  <rect x="1230" y="540" width="130" height="130" class="box-doc" rx="6"/>
+  <text x="1295" y="565" class="label" text-anchor="middle">Vector DB</text>
+  <text x="1295" y="585" class="sublabel" text-anchor="middle">Storage</text>
+  <text x="1295" y="600" class="sublabel" text-anchor="middle">index.faiss</text>
+  <text x="1295" y="615" class="sublabel" text-anchor="middle">index.pkl</text>
+  <text x="1295" y="630" class="sublabel" text-anchor="middle">Disk</text>
+
+  <!-- TIER 4: AI AGENTS & WORKFLOW -->
+  <rect x="20" y="720" width="1560" height="220" class="tier-bg" rx="8"/>
+  <text x="40" y="750" class="section-title">🤖 TIER 4: AI AGENTS &amp; LANGGRAPH WORKFLOW</text>
+
+  <rect x="40" y="780" width="110" height="120" class="box-agent" rx="6"/>
+  <text x="95" y="800" class="label" text-anchor="middle">Summary</text>
+  <text x="95" y="820" class="sublabel" text-anchor="middle">Agent</text>
+  <text x="95" y="835" class="sublabel" text-anchor="middle">Document</text>
+  <text x="95" y="850" class="sublabel" text-anchor="middle">Summary</text>
+  <text x="95" y="865" class="sublabel" text-anchor="middle">KPIs</text>
+
+  <rect x="180" y="780" width="110" height="120" class="box-agent" rx="6"/>
+  <text x="235" y="800" class="label" text-anchor="middle">Financial</text>
+  <text x="235" y="820" class="sublabel" text-anchor="middle">Analysis</text>
+  <text x="235" y="835" class="sublabel" text-anchor="middle">Metrics</text>
+  <text x="235" y="850" class="sublabel" text-anchor="middle">Ratios</text>
+  <text x="235" y="865" class="sublabel" text-anchor="middle">Health</text>
+
+  <rect x="320" y="780" width="110" height="120" class="box-agent" rx="6"/>
+  <text x="375" y="800" class="label" text-anchor="middle">Risk</text>
+  <text x="375" y="820" class="sublabel" text-anchor="middle">Analysis</text>
+  <text x="375" y="835" class="sublabel" text-anchor="middle">Risk Assess</text>
+  <text x="375" y="850" class="sublabel" text-anchor="middle">Warnings</text>
+  <text x="375" y="865" class="sublabel" text-anchor="middle">Alerts</text>
+
+  <rect x="460" y="780" width="110" height="120" class="box-agent" rx="6"/>
+  <text x="515" y="800" class="label" text-anchor="middle">Comparison</text>
+  <text x="515" y="820" class="sublabel" text-anchor="middle">Agent</text>
+  <text x="515" y="835" class="sublabel" text-anchor="middle">Multi-Doc</text>
+  <text x="515" y="850" class="sublabel" text-anchor="middle">Compare</text>
+  <text x="515" y="865" class="sublabel" text-anchor="middle">Contrast</text>
+
+  <rect x="600" y="780" width="110" height="120" class="box-agent" rx="6"/>
+  <text x="655" y="800" class="label" text-anchor="middle">Investment</text>
+  <text x="655" y="820" class="sublabel" text-anchor="middle">Agent</text>
+  <text x="655" y="835" class="sublabel" text-anchor="middle">Investment</text>
+  <text x="655" y="850" class="sublabel" text-anchor="middle">Score</text>
+  <text x="655" y="865" class="sublabel" text-anchor="middle">Analysis</text>
+
+  <rect x="740" y="780" width="110" height="120" class="box-agent" rx="6"/>
+  <text x="795" y="800" class="label" text-anchor="middle">Retrieval</text>
+  <text x="795" y="820" class="sublabel" text-anchor="middle">Agent</text>
+  <text x="795" y="835" class="sublabel" text-anchor="middle">RAG</text>
+  <text x="795" y="850" class="sublabel" text-anchor="middle">Search</text>
+  <text x="795" y="865" class="sublabel" text-anchor="middle">Retrieve</text>
+
+  <rect x="880" y="780" width="110" height="120" class="box-agent" rx="6"/>
+  <text x="935" y="800" class="label" text-anchor="middle">General</text>
+  <text x="935" y="820" class="sublabel" text-anchor="middle">Agent</text>
+  <text x="935" y="835" class="sublabel" text-anchor="middle">Fallback</text>
+  <text x="935" y="850" class="sublabel" text-anchor="middle">Q&amp;A</text>
+  <text x="935" y="865" class="sublabel" text-anchor="middle">General</text>
+
+  <rect x="1020" y="780" width="520" height="60" class="box-agent" rx="6"/>
+  <text x="1280" y="815" class="label" text-anchor="middle">LangGraph Workflow: Parallel Execution with State Management</text>
+
+  <rect x="1020" y="860" width="520" height="40" class="box-agent" rx="6"/>
+  <text x="1280" y="885" class="sublabel" text-anchor="middle">Conditional routing based on question type and document availability</text>
+
+  <!-- TIER 5: EXTERNAL SERVICES -->
+  <rect x="20" y="970" width="1560" height="200" class="tier-bg" rx="8"/>
+  <text x="40" y="1000" class="section-title">🔧 TIER 5: EXTERNAL SERVICES &amp; INFRASTRUCTURE</text>
+
+  <rect x="40" y="1030" width="140" height="120" class="box-external" rx="6"/>
+  <text x="110" y="1055" class="label" text-anchor="middle">Google Gemini</text>
+  <text x="110" y="1075" class="sublabel" text-anchor="middle">API</text>
+  <text x="110" y="1090" class="sublabel" text-anchor="middle">LLM Model</text>
+  <text x="110" y="1105" class="sublabel" text-anchor="middle">Embeddings</text>
+  <text x="110" y="1120" class="sublabel" text-anchor="middle">Responses</text>
+
+  <rect x="220" y="1030" width="140" height="120" class="box-external" rx="6"/>
+  <text x="290" y="1055" class="label" text-anchor="middle">Cache Manager</text>
+  <text x="290" y="1075" class="sublabel" text-anchor="middle">Response Cache</text>
+  <text x="290" y="1090" class="sublabel" text-anchor="middle">In-Memory</text>
+  <text x="290" y="1105" class="sublabel" text-anchor="middle">Speed Up</text>
+  <text x="290" y="1120" class="sublabel" text-anchor="middle">Q&amp;A</text>
+
+  <rect x="400" y="1030" width="140" height="120" class="box-external" rx="6"/>
+  <text x="470" y="1055" class="label" text-anchor="middle">Human Approval</text>
+  <text x="470" y="1075" class="sublabel" text-anchor="middle">System</text>
+  <text x="470" y="1090" class="sublabel" text-anchor="middle">Investment</text>
+  <text x="470" y="1105" class="sublabel" text-anchor="middle">Questions</text>
+  <text x="470" y="1120" class="sublabel" text-anchor="middle">Flag &amp; Review</text>
+
+  <rect x="580" y="1030" width="140" height="120" class="box-external" rx="6"/>
+  <text x="650" y="1055" class="label" text-anchor="middle">Retry Logic</text>
+  <text x="650" y="1075" class="sublabel" text-anchor="middle">Exponential</text>
+  <text x="650" y="1090" class="sublabel" text-anchor="middle">Backoff</text>
+  <text x="650" y="1105" class="sublabel" text-anchor="middle">Rate Limit</text>
+  <text x="650" y="1120" class="sublabel" text-anchor="middle">Handling</text>
+
+  <rect x="760" y="1030" width="140" height="120" class="box-external" rx="6"/>
+  <text x="830" y="1055" class="label" text-anchor="middle">Conversation</text>
+  <text x="830" y="1075" class="sublabel" text-anchor="middle">Storage</text>
+  <text x="830" y="1090" class="sublabel" text-anchor="middle">Session State</text>
+  <text x="830" y="1105" class="sublabel" text-anchor="middle">In-Memory</text>
+  <text x="830" y="1120" class="sublabel" text-anchor="middle">Per Session</text>
+
+  <rect x="940" y="1030" width="140" height="120" class="box-external" rx="6"/>
+  <text x="1010" y="1055" class="label" text-anchor="middle">File Storage</text>
+  <text x="1010" y="1075" class="sublabel" text-anchor="middle">Uploaded Docs</text>
+  <text x="1010" y="1090" class="sublabel" text-anchor="middle">data/uploaded/</text>
+  <text x="1010" y="1105" class="sublabel" text-anchor="middle">Temporary</text>
+  <text x="1010" y="1120" class="sublabel" text-anchor="middle">Processing</text>
+
+  <rect x="1120" y="1030" width="140" height="120" class="box-external" rx="6"/>
+  <text x="1190" y="1055" class="label" text-anchor="middle">Vector DB</text>
+  <text x="1190" y="1075" class="sublabel" text-anchor="middle">Persistence</text>
+  <text x="1190" y="1090" class="sublabel" text-anchor="middle">FAISS Index</text>
+  <text x="1190" y="1105" class="sublabel" text-anchor="middle">Pickle Files</text>
+  <text x="1190" y="1120" class="sublabel" text-anchor="middle">data/vector_db/</text>
+
+  <rect x="1300" y="1030" width="140" height="120" class="box-external" rx="6"/>
+  <text x="1370" y="1055" class="label" text-anchor="middle">Environment</text>
+  <text x="1370" y="1075" class="sublabel" text-anchor="middle">Config</text>
+  <text x="1370" y="1090" class="sublabel" text-anchor="middle">.env</text>
+  <text x="1370" y="1105" class="sublabel" text-anchor="middle">API Keys</text>
+  <text x="1370" y="1120" class="sublabel" text-anchor="middle">Settings</text>
+
+  <!-- DATA FLOW ARROWS -->
+  <path d="M 110 220 L 110 330" class="arrow-thick" marker-end="url(#arrowhead-blue)"/>
+  <path d="M 280 220 L 305 330" class="arrow-thick" marker-end="url(#arrowhead-blue)"/>
+  <path d="M 450 220 L 495 330" class="arrow-thick" marker-end="url(#arrowhead-blue)"/>
+
+  <path d="M 115 430 L 105 540" class="arrow-thick" marker-end="url(#arrowhead-blue)"/>
+  <path d="M 305 430 L 275 540" class="arrow-thick" marker-end="url(#arrowhead-blue)"/>
+
+  <path d="M 445 540 L 455 540" class="arrow" marker-end="url(#arrowhead)"/>
+  <path d="M 510 540 L 560 540" class="arrow" marker-end="url(#arrowhead)"/>
+  <path d="M 680 540 L 730 540" class="arrow" marker-end="url(#arrowhead)"/>
+  <path d="M 850 540 L 900 540" class="arrow" marker-end="url(#arrowhead)"/>
+  <path d="M 1020 540 L 1070 540" class="arrow" marker-end="url(#arrowhead)"/>
+
+  <path d="M 785 670 L 400 780" class="arrow-thick" marker-end="url(#arrowhead-blue)"/>
+
+  <path d="M 615 720 L 110 1030" class="arrow" marker-end="url(#arrowhead)"/>
+  <path d="M 785 720 L 290 1030" class="arrow" marker-end="url(#arrowhead)"/>
+  <path d="M 938 910 L 470 1030" class="arrow" marker-end="url(#arrowhead)"/>
+
+  <!-- LEGEND -->
+  <text x="40" y="1170" class="sublabel">Data Flow → Arrows show primary data flow paths. Blue = Main query flow. Gray = Supporting flows.</text>
+  <text x="40" y="1185" class="sublabel">Color Legend: 🔵 UI | 🟢 State | 🟣 Documents/RAG | 🟠 AI Agents | 🔴 External Services</text>
+</svg>

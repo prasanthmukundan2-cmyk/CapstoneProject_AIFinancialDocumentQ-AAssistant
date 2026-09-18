@@ -1,6 +1,7 @@
 """
 Document Upload & Processing
 Handles file uploads and extracts data for RAG indexing
+Supports: PDF, TXT, XLSX (Excel)
 """
 
 import logging
@@ -9,6 +10,12 @@ from pathlib import Path
 from typing import Optional, Tuple, Dict
 import PyPDF2
 from langchain_core.documents import Document
+
+try:
+    import openpyxl
+    EXCEL_SUPPORT = True
+except ImportError:
+    EXCEL_SUPPORT = False
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +57,21 @@ class DocumentProcessor:
         Supports:
         - PDF files
         - TXT files
+        - XLSX/XLS files (Excel)
         """
         try:
-            if file_path.suffix.lower() == ".pdf":
+            suffix = file_path.suffix.lower()
+
+            if suffix == ".pdf":
                 return self._extract_from_pdf(file_path)
-            elif file_path.suffix.lower() == ".txt":
+            elif suffix == ".txt":
                 return self._extract_from_txt(file_path)
+            elif suffix in [".xlsx", ".xls"]:
+                if not EXCEL_SUPPORT:
+                    raise ValueError("Excel support not available. Install openpyxl: pip install openpyxl")
+                return self._extract_from_excel(file_path)
             else:
-                raise ValueError(f"Unsupported file type: {file_path.suffix}")
+                raise ValueError(f"Unsupported file type: {suffix}. Supported: .pdf, .txt, .xlsx, .xls")
 
         except Exception as e:
             logger.error(f"Error extracting text: {e}")
@@ -103,6 +117,37 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"TXT extraction error: {e}")
             raise
+
+    def _extract_from_excel(self, file_path: Path) -> str:
+        """Extract text from Excel file (XLSX/XLS)"""
+        try:
+            logger.info(f"Starting Excel extraction from: {file_path}")
+            text = ""
+
+            workbook = openpyxl.load_workbook(file_path, data_only=True)
+            sheet_names = workbook.sheetnames
+            logger.info(f"Excel file has {len(sheet_names)} sheet(s): {sheet_names}")
+
+            for sheet_name in sheet_names:
+                worksheet = workbook[sheet_name]
+                text += f"\n{'='*50}\n"
+                text += f"Sheet: {sheet_name}\n"
+                text += f"{'='*50}\n"
+
+                # Extract headers and data
+                for row_num, row in enumerate(worksheet.iter_rows(values_only=True), 1):
+                    row_text = " | ".join(str(cell) if cell is not None else "" for cell in row)
+                    text += f"{row_text}\n"
+
+                logger.debug(f"Extracted sheet: {sheet_name}")
+
+            workbook.close()
+            logger.info(f"Successfully extracted {len(sheet_names)} sheets from Excel")
+            return text
+
+        except Exception as e:
+            logger.error(f"Excel extraction error: {type(e).__name__}: {e}")
+            raise ValueError(f"Failed to extract Excel file: {str(e)}")
 
     def process_document(self, uploaded_file) -> Tuple[str, str, Dict]:
         """

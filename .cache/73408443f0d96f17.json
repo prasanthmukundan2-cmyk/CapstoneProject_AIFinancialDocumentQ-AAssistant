@@ -1,0 +1,9 @@
+{
+  "answer": "Could not summarize documents. Error: [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1028)",
+  "agent": "summary_agent",
+  "sources": [
+    "annual_report.pdf",
+    "Document"
+  ],
+  "cached_at": "2026-09-18T10:39:14.023883"
+}

@@ -1,0 +1,9 @@
+{
+  "answer": "Could not complete comparison. Error: \ud83d\udeab **API Rate Limit Exceeded**\n\nThe Google Gemini API rate limit has been reached.\n\n**What to do:**\n1",
+  "agent": "comparison_agent",
+  "sources": [
+    "annual_report_2024.pdf",
+    "Document"
+  ],
+  "cached_at": "2026-09-18T10:36:22.063441"
+}
