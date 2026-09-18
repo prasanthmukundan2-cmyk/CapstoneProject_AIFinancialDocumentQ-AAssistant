@@ -293,21 +293,6 @@ with st.sidebar:
 
     st.divider()
 
-    # ========== CACHE MANAGEMENT ==========
-    st.subheader("💾 Cache Management")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Clear Cache"):
-            clear_cache()
-            st.success("Cache cleared!")
-
-    current_conv = st.session_state.conversations.get(st.session_state.current_conversation_id, {})
-    msg_count = len(current_conv.get("messages", []))
-    with col2:
-        st.caption(f"Messages: {msg_count}")
-
-    st.divider()
-
     # ========== INFO ==========
     st.subheader("ℹ️ Info")
     st.markdown("""
