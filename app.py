@@ -593,8 +593,7 @@ with tab1:
                     st.session_state.pending_document = document_content
                     st.session_state.pending_document_question = question
 
-                    # Display approval message
-                    approval_response = get_document_creation_response(question)
+                    # Display approval message with status
                     st.markdown("""
 ### 🔐 DOCUMENT APPROVAL REQUIRED
 
@@ -604,14 +603,59 @@ A financial document has been generated based on your KPI data and company analy
 - Does the content accurately reflect your data?
 - Are the metrics and insights correct?
 - Is the formatting professional?
-
-**Next Steps:**
-1. Review the document above
-2. To approve: Reply with "Approve" or "Yes"
-3. To reject/revise: Reply with "Reject" or describe changes
-
-The document will be saved only after your approval.
                     """)
+
+                    # Add Approve/Reject buttons
+                    col_approve, col_reject = st.columns(2)
+
+                    with col_approve:
+                        if st.button("✅ Approve & Save", use_container_width=True, key="doc_approve"):
+                            # Save the approved document
+                            doc_name = st.session_state.current_document.replace(".pdf", "").replace(".txt", "").replace(".csv", "").replace(".xlsx", "").replace(".xls", "")
+                            filename = f"{doc_name}_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+
+                            success, path = save_approved_document(filename, st.session_state.pending_document)
+
+                            if success:
+                                st.success(f"✅ Document approved and saved!")
+                                st.info(f"📁 Saved to: `{path}`")
+
+                                current_conv["messages"].append({
+                                    "role": "assistant",
+                                    "content": f"✅ Document approved and saved\n\n📁 Location: {path}",
+                                    "metadata": {
+                                        "agent": "document_creator",
+                                        "action": "document_saved",
+                                        "file_path": path,
+                                    }
+                                })
+
+                                # Clear pending document
+                                st.session_state.pending_document = None
+                                st.session_state.pending_document_question = None
+                                update_conversation_timestamp(current_conv)
+                                st.rerun()
+                            else:
+                                st.error(f"❌ Error saving document: {path}")
+
+                    with col_reject:
+                        if st.button("❌ Reject & Revise", use_container_width=True, key="doc_reject"):
+                            st.warning("Document rejected. Please describe what changes you'd like to make.")
+
+                            current_conv["messages"].append({
+                                "role": "assistant",
+                                "content": "Document rejected. Please specify what changes are needed or ask me to regenerate it.",
+                                "metadata": {
+                                    "agent": "document_creator",
+                                    "action": "document_rejected",
+                                }
+                            })
+
+                            # Clear pending document
+                            st.session_state.pending_document = None
+                            st.session_state.pending_document_question = None
+                            update_conversation_timestamp(current_conv)
+                            st.rerun()
 
                     current_conv["messages"].append({
                         "role": "assistant",
@@ -625,53 +669,6 @@ The document will be saved only after your approval.
                     update_conversation_timestamp(current_conv)
                 else:
                     st.error("❌ No document loaded. Please upload a document first.")
-
-        # Check if user is responding to document approval
-        elif st.session_state.get("pending_document"):
-            approval_status = detect_approval_response(question)
-
-            if approval_status == "approve":
-                with st.chat_message("assistant"):
-                    # Save the approved document
-                    doc_name = st.session_state.current_document.replace(".pdf", "").replace(".txt", "").replace(".csv", "").replace(".xlsx", "").replace(".xls", "")
-                    filename = f"{doc_name}_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-
-                    success, path = save_approved_document(filename, st.session_state.pending_document)
-
-                    if success:
-                        st.success(f"✅ Document approved and saved!")
-                        st.info(f"📁 Saved to: `{path}`")
-
-                        current_conv["messages"].append({
-                            "role": "assistant",
-                            "content": f"✅ Document approved and saved to {path}",
-                            "metadata": {
-                                "agent": "document_creator",
-                                "action": "document_saved",
-                                "file_path": path,
-                            }
-                        })
-                    else:
-                        st.error(f"❌ Error saving document: {path}")
-
-                    # Clear pending document
-                    st.session_state.pending_document = None
-                    st.session_state.pending_document_question = None
-                    update_conversation_timestamp(current_conv)
-
-            elif approval_status == "reject":
-                with st.chat_message("assistant"):
-                    st.warning("❌ Document rejected. Please provide details on what to change:")
-                    current_conv["messages"].append({
-                        "role": "assistant",
-                        "content": "Document rejected. Please specify what changes are needed.",
-                        "metadata": {
-                            "agent": "document_creator",
-                            "action": "document_rejected",
-                        }
-                    })
-                    st.session_state.pending_document = None
-                    update_conversation_timestamp(current_conv)
 
         # Check if it's an investment question
         elif detect_investment_question(question):
