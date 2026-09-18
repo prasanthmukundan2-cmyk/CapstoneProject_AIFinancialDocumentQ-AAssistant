@@ -44,9 +44,15 @@ def get_embeddings():
     """
     Create the embedding model once and reuse it.
     """
+    import os
+
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise ValueError("GOOGLE_API_KEY environment variable not set")
 
     return GoogleGenerativeAIEmbeddings(
-        model="gemini-embedding-001"
+        model="gemini-embedding-001",
+        google_api_key=api_key
     )
 
 
