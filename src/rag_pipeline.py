@@ -113,20 +113,64 @@ def build_vector_store():
             except Exception as e:
                 print(f"Error loading {file_path}: {e}")
 
-    # Fallback to sample files if no uploads
+    # Fallback to files in data/ folder if no uploads
     if not documents:
-        print("No uploaded files, using fallback...")
-        if os.path.exists(FALLBACK_PDF):
-            docs = PyPDFLoader(FALLBACK_PDF).load()
-            for doc in docs:
-                doc.metadata["source_file"] = os.path.basename(FALLBACK_PDF)
-            documents.extend(docs)
+        print("No uploaded files, loading fallback files from data/ folder...")
+        fallback_dir = "data"
 
-        if os.path.exists(FALLBACK_CSV):
-            docs = CSVLoader(FALLBACK_CSV).load()
-            for doc in docs:
-                doc.metadata["source_file"] = os.path.basename(FALLBACK_CSV)
-            documents.extend(docs)
+        if os.path.exists(fallback_dir):
+            fallback_files = [
+                os.path.join(fallback_dir, f)
+                for f in os.listdir(fallback_dir)
+                if f.lower().endswith(('.pdf', '.txt', '.csv', '.xlsx', '.xls'))
+                and os.path.isfile(os.path.join(fallback_dir, f))
+            ]
+
+            for file_path in fallback_files:
+                try:
+                    file_name = os.path.basename(file_path)
+                    if file_path.lower().endswith('.pdf'):
+                        docs = PyPDFLoader(file_path).load()
+                        for doc in docs:
+                            doc.metadata["source_file"] = file_name
+                        documents.extend(docs)
+                        print(f"✓ Loaded fallback: {file_name}")
+                    elif file_path.lower().endswith('.txt'):
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            from langchain_core.documents import Document
+                            doc = Document(
+                                page_content=f.read(),
+                                metadata={"source_file": file_name}
+                            )
+                            documents.append(doc)
+                        print(f"✓ Loaded fallback: {file_name}")
+                    elif file_path.lower().endswith('.csv'):
+                        docs = CSVLoader(file_path).load()
+                        for doc in docs:
+                            doc.metadata["source_file"] = file_name
+                        documents.extend(docs)
+                        print(f"✓ Loaded fallback: {file_name}")
+                    elif file_path.lower().endswith(('.xlsx', '.xls')):
+                        try:
+                            import openpyxl
+                            from langchain_core.documents import Document
+                            workbook = openpyxl.load_workbook(file_path, data_only=True)
+                            for sheet_name in workbook.sheetnames:
+                                worksheet = workbook[sheet_name]
+                                text = f"Sheet: {sheet_name}\n"
+                                for row in worksheet.iter_rows(values_only=True):
+                                    text += " | ".join(str(cell) if cell is not None else "" for cell in row) + "\n"
+                                doc = Document(
+                                    page_content=text,
+                                    metadata={"source_file": file_name, "sheet": sheet_name}
+                                )
+                                documents.append(doc)
+                            workbook.close()
+                            print(f"✓ Loaded fallback: {file_name}")
+                        except Exception as e:
+                            print(f"Error loading Excel fallback {file_name}: {e}")
+                except Exception as e:
+                    print(f"Error loading fallback file {file_path}: {e}")
 
     if not documents:
         raise FileNotFoundError(

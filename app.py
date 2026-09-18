@@ -433,6 +433,13 @@ with tab1:
                         - Check file isn't corrupted
                         """)
 
+    # Check if using fallback files
+    uploaded_dir = Path("data/uploaded")
+    is_using_fallback = not (uploaded_dir.exists() and len(list(uploaded_dir.glob("*"))) > 0)
+
+    if is_using_fallback and not st.session_state.uploaded_documents:
+        st.info("📚 **Using sample files from data/ folder** | Upload your own files to analyze your documents", icon="ℹ️")
+
     # Display uploaded documents (outside expander)
     if st.session_state.uploaded_documents:
         col1, col2, col3 = st.columns([2, 1, 1])
