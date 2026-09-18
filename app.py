@@ -2,6 +2,7 @@ import time
 import os
 import json
 from pathlib import Path
+from datetime import datetime
 
 import streamlit as st
 from langchain_core.messages import HumanMessage
@@ -11,6 +12,13 @@ from src.workflow_optimized import create_optimized_workflow
 from src.cache_manager import get_cached_response, cache_response, clear_cache
 from src.simple_investment import detect_investment_question, get_investment_response
 from src.document_processor import process_upload
+from src.document_creator import (
+    detect_document_creation_request,
+    get_document_creation_response,
+    create_document_approval_message,
+    save_approved_document,
+    detect_approval_response,
+)
 from src.retry_utils import invoke_with_retry
 from src.agents_fixed import get_llm, _extract_text
 from src.rag_pipeline import rebuild_vectorstore
@@ -202,6 +210,13 @@ if "current_conversation_id" not in st.session_state:
 # API key state
 if "api_key_set" not in st.session_state:
     st.session_state.api_key_set = bool(os.getenv("GOOGLE_API_KEY"))
+
+# Document creation/approval state
+if "pending_document" not in st.session_state:
+    st.session_state.pending_document = None
+
+if "pending_document_question" not in st.session_state:
+    st.session_state.pending_document_question = None
 
 
 # ============================================================
@@ -572,8 +587,129 @@ with tab1:
         with st.chat_message("user"):
             st.markdown(question)
 
+        # Check if it's a document creation request
+        if detect_document_creation_request(question):
+            with st.chat_message("assistant"):
+                # Generate the document
+                document_content = ""
+
+                if st.session_state.current_document and st.session_state.uploaded_documents:
+                    with st.spinner("📝 Generating document..."):
+                        try:
+                            doc_data = st.session_state.uploaded_documents[st.session_state.current_document]
+                            doc_text = doc_data["text"]
+                            doc_name = doc_data["metadata"]["file_name"]
+
+                            # Get LLM to generate document
+                            llm = get_llm()
+                            from src.context import build_context
+
+                            # Build context for document creation
+                            context = build_context(question, doc_text)
+
+                            # Generate document using LLM
+                            from src.document_creator import get_document_creation_prompt
+                            prompt = get_document_creation_prompt(question, context)
+
+                            response = llm.invoke(prompt)
+                            document_content = response.content if hasattr(response, 'content') else str(response)
+
+                        except Exception as e:
+                            document_content = f"Error generating document: {str(e)[:200]}"
+
+                if document_content:
+                    # Display the generated document
+                    st.markdown("### 📄 Generated Document")
+                    st.markdown("---")
+                    st.markdown(document_content)
+                    st.markdown("---")
+
+                    # Store in session for approval
+                    st.session_state.pending_document = document_content
+                    st.session_state.pending_document_question = question
+
+                    # Display approval message
+                    approval_response = get_document_creation_response(question)
+                    st.markdown("""
+### 🔐 DOCUMENT APPROVAL REQUIRED
+
+A financial document has been generated based on your KPI data and company analysis.
+
+**Please Review:**
+- Does the content accurately reflect your data?
+- Are the metrics and insights correct?
+- Is the formatting professional?
+
+**Next Steps:**
+1. Review the document above
+2. To approve: Reply with "Approve" or "Yes"
+3. To reject/revise: Reply with "Reject" or describe changes
+
+The document will be saved only after your approval.
+                    """)
+
+                    current_conv["messages"].append({
+                        "role": "assistant",
+                        "content": document_content + "\n\n[AWAITING DOCUMENT APPROVAL]",
+                        "metadata": {
+                            "agent": "document_creator",
+                            "requires_approval": True,
+                            "document_content": document_content,
+                        }
+                    })
+                    update_conversation_timestamp(current_conv)
+                else:
+                    st.error("❌ No document loaded. Please upload a document first.")
+
+        # Check if user is responding to document approval
+        elif st.session_state.get("pending_document"):
+            approval_status = detect_approval_response(question)
+
+            if approval_status == "approve":
+                with st.chat_message("assistant"):
+                    # Save the approved document
+                    doc_name = st.session_state.current_document.replace(".pdf", "").replace(".txt", "").replace(".csv", "").replace(".xlsx", "").replace(".xls", "")
+                    filename = f"{doc_name}_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+
+                    success, path = save_approved_document(filename, st.session_state.pending_document)
+
+                    if success:
+                        st.success(f"✅ Document approved and saved!")
+                        st.info(f"📁 Saved to: `{path}`")
+
+                        current_conv["messages"].append({
+                            "role": "assistant",
+                            "content": f"✅ Document approved and saved to {path}",
+                            "metadata": {
+                                "agent": "document_creator",
+                                "action": "document_saved",
+                                "file_path": path,
+                            }
+                        })
+                    else:
+                        st.error(f"❌ Error saving document: {path}")
+
+                    # Clear pending document
+                    st.session_state.pending_document = None
+                    st.session_state.pending_document_question = None
+                    update_conversation_timestamp(current_conv)
+
+            elif approval_status == "reject":
+                with st.chat_message("assistant"):
+                    st.warning("❌ Document rejected. Please provide details on what to change:")
+                    current_conv["messages"].append({
+                        "role": "assistant",
+                        "content": "Document rejected. Please specify what changes are needed.",
+                        "metadata": {
+                            "agent": "document_creator",
+                            "action": "document_rejected",
+                        }
+                    })
+                    st.session_state.pending_document = None
+                    update_conversation_timestamp(current_conv)
+
         # Check if it's an investment question
-        if detect_investment_question(question):
+        elif detect_investment_question(question):
             with st.chat_message("assistant"):
                 # First, analyze the document if available
                 analysis = ""
