@@ -48,9 +48,7 @@ reviewed and approved by a qualified financial analyst before
 a response can be provided.
 
 ⏳ **What Happens Next:**
-1. Your question has been flagged for review
-2. A financial analyst will examine this
-3. They will provide guidance within 24 hours
+1. A financial analyst will examine this
 
 📧 **You will be notified when the review is complete.**
 

@@ -1,0 +1,9 @@
+{
+  "answer": "Could not process request. Please try again in a moment.",
+  "agent": "retrieval_agent",
+  "sources": [
+    "financial_kpi_dataset.csv",
+    "Document"
+  ],
+  "cached_at": "2026-09-18T18:17:20.932255"
+}

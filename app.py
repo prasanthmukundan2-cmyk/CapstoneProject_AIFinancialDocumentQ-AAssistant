@@ -1,16 +1,51 @@
 import time
 import os
 import json
+import logging
 from pathlib import Path
+from datetime import datetime
 
 import streamlit as st
 from langchain_core.messages import HumanMessage
 from pypdf import PdfReader
 
+# ============================================================
+# LOGGING CONFIGURATION - SAVE LOGS TO FILE
+# ============================================================
+
+# Create logs directory if it doesn't exist
+log_dir = Path("logs")
+log_dir.mkdir(exist_ok=True)
+
+# Configure logging to save to both file and console
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        # File handler - saves all logs to disk
+        logging.FileHandler(log_dir / "app.log"),
+        # Console handler - also shows in terminal
+        logging.StreamHandler()
+    ]
+)
+
+# Get logger for this module
+logger = logging.getLogger(__name__)
+logger.info("="*80)
+logger.info("APPLICATION STARTED")
+logger.info("="*80)
+
 from src.workflow_optimized import create_optimized_workflow
 from src.cache_manager import get_cached_response, cache_response, clear_cache
 from src.simple_investment import detect_investment_question, get_investment_response
 from src.document_processor import process_upload
+from src.document_creator import (
+    detect_document_creation_request,
+    get_document_creation_response,
+    create_document_approval_message,
+    save_approved_document,
+    detect_approval_response,
+)
 from src.retry_utils import invoke_with_retry
 from src.agents_fixed import get_llm, _extract_text
 from src.rag_pipeline import rebuild_vectorstore
@@ -199,9 +234,16 @@ if "current_conversation_id" not in st.session_state:
     st.session_state.conversations[initial_conv["id"]] = initial_conv
     st.session_state.current_conversation_id = initial_conv["id"]
 
-# API key state
+# API key state (checked from .env file)
 if "api_key_set" not in st.session_state:
     st.session_state.api_key_set = bool(os.getenv("GOOGLE_API_KEY"))
+
+# Document creation/approval state
+if "pending_document" not in st.session_state:
+    st.session_state.pending_document = None
+
+if "pending_document_question" not in st.session_state:
+    st.session_state.pending_document_question = None
 
 
 # ============================================================
@@ -278,41 +320,6 @@ with st.sidebar:
 
     st.divider()
 
-    # ========== API KEY CONFIGURATION ==========
-    st.subheader("🔑 API Configuration")
-    api_key = st.text_input(
-        "Google Gemini API Key",
-        type="password",
-        help="Enter your API key from console.cloud.google.com"
-    )
-
-    if api_key:
-        os.environ["GOOGLE_API_KEY"] = api_key
-        st.session_state.api_key_set = True
-        st.success("✅ API key configured")
-    elif os.getenv("GOOGLE_API_KEY"):
-        st.success("✅ API key from .env file")
-        st.session_state.api_key_set = True
-    else:
-        st.warning("⚠️ No API key set. Enter one above or set GOOGLE_API_KEY in .env")
-
-    st.divider()
-
-    # ========== CACHE MANAGEMENT ==========
-    st.subheader("💾 Cache Management")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Clear Cache"):
-            clear_cache()
-            st.success("Cache cleared!")
-
-    current_conv = st.session_state.conversations.get(st.session_state.current_conversation_id, {})
-    msg_count = len(current_conv.get("messages", []))
-    with col2:
-        st.caption(f"Messages: {msg_count}")
-
-    st.divider()
-
     # ========== INFO ==========
     st.subheader("ℹ️ Info")
     st.markdown("""
@@ -358,10 +365,10 @@ with tab1:
                 st.session_state.uploader_key = 0
 
             uploaded_file = st.file_uploader(
-                "Choose document(s) (PDF, TXT, or Excel)",
-                type=["pdf", "txt", "xlsx", "xls"],
+                "Choose document(s) (PDF, TXT, Excel, or CSV)",
+                type=["pdf", "txt", "xlsx", "xls", "csv"],
                 key=f"chat_uploader_{st.session_state.uploader_key}",
-                help="Upload financial documents (PDF, TXT, or Excel files) to ask questions about them"
+                help="Upload financial documents (PDF, TXT, Excel, or CSV files) to ask questions about them"
             )
 
         with col_side:
@@ -393,10 +400,17 @@ with tab1:
                     st.success(f"✅ Loaded: {uploaded_file.name}")
                     st.info(f"📄 File size: {metadata['file_size']/1024:.1f} KB | Words: ~{len(text_content.split())}")
 
+                    # Log document upload
+                    logger.info(f"📄 DOCUMENT UPLOADED: {uploaded_file.name}")
+                    logger.info(f"   File size: {metadata['file_size']/1024:.1f} KB")
+                    logger.info(f"   Word count: {len(text_content.split())}")
+
                     # Rebuild vector store with new file
                     with st.spinner("🔄 Indexing document for search..."):
+                        logger.info(f"🔄 Rebuilding vector store for: {uploaded_file.name}")
                         rebuild_vectorstore()
                     st.success("✅ Document indexed successfully!")
+                    logger.info(f"✅ Vector store rebuilt successfully")
 
                     # Show current loaded documents
                     st.info(f"📁 **Total documents loaded:** {len(st.session_state.uploaded_documents)}")
@@ -432,6 +446,13 @@ with tab1:
                         - Try a smaller file
                         - Check file isn't corrupted
                         """)
+
+    # Check if using fallback files
+    uploaded_dir = Path("data/uploaded")
+    is_using_fallback = not (uploaded_dir.exists() and len(list(uploaded_dir.glob("*"))) > 0)
+
+    if is_using_fallback and not st.session_state.uploaded_documents:
+        st.info("📚 **Using sample files from data/ folder** | Upload your own files to analyze your documents", icon="ℹ️")
 
     # Display uploaded documents (outside expander)
     if st.session_state.uploaded_documents:
@@ -551,6 +572,10 @@ with tab1:
 
     # Process question
     if question:
+        # Log incoming question
+        logger.info("-" * 80)
+        logger.info(f"❓ NEW QUESTION RECEIVED: {question[:100]}...")
+
         # Get current conversation reference
         current_conv = st.session_state.conversations[st.session_state.current_conversation_id]
 
@@ -565,8 +590,163 @@ with tab1:
         with st.chat_message("user"):
             st.markdown(question)
 
+        # Check if it's a document creation request
+        if detect_document_creation_request(question):
+            with st.chat_message("assistant"):
+                # Generate the document
+                document_content = ""
+                agent_used = ""
+
+                if st.session_state.current_document and st.session_state.uploaded_documents:
+                    with st.spinner("📝 Generating document..."):
+                        try:
+                            doc_data = st.session_state.uploaded_documents[st.session_state.current_document]
+                            doc_text = doc_data["text"]
+                            doc_name = doc_data["metadata"]["file_name"]
+
+                            # Route to appropriate agent based on question
+                            if "summary" in question.lower() or "overview" in question.lower():
+                                agent_used = "Summary Agent"
+                            elif "risk" in question.lower():
+                                agent_used = "Risk Analysis Agent"
+                            elif "compare" in question.lower():
+                                agent_used = "Comparison Agent"
+                            elif "invest" in question.lower():
+                                agent_used = "Investment Agent"
+                            else:
+                                agent_used = "Financial Analysis Agent"
+
+                            # Display which agent is processing
+                            st.info(f"🤖 Agent: {agent_used}")
+
+                            # Use LLM directly (simpler, no workflow overhead)
+                            llm = get_llm()
+
+                            prompt = f"""Create a professional {agent_used.lower()} document.
+
+Question: {question}
+
+Context from document:
+{doc_text[:1500]}
+
+Generate a detailed, well-formatted document:"""
+
+                            response = invoke_with_retry(llm, prompt, max_retries=2)
+                            document_content = _extract_text(response.content) if hasattr(response, 'content') else str(response)
+
+                        except Exception as e:
+                            error_msg = str(e)
+                            if "504" in error_msg or "DEADLINE" in error_msg:
+                                document_content = None
+                                st.error("""
+⚠️ **API Timeout - Document Generation Failed**
+
+The request took too long. This can happen with large documents.
+
+**Solutions:**
+1. Try with a **smaller document** (first few pages)
+2. Ask a **simpler question** (e.g., "Create a summary")
+3. **Wait a moment** and try again
+4. **Check your API quota** at console.cloud.google.com
+
+*Tip: Shorter documents generate faster!*
+                                """)
+                            else:
+                                document_content = None
+                                st.error(f"Error generating document: {error_msg[:150]}")
+
+                if document_content and document_content != "Unable to generate document":
+                    # Display the generated document
+                    st.markdown("### 📄 Generated Document")
+                    st.markdown("---")
+                    st.markdown(document_content)
+                    st.markdown("---")
+
+                    # Store in session for approval
+                    st.session_state.pending_document = document_content
+                    st.session_state.pending_document_question = question
+
+                    # Display approval message with agent info
+                    st.markdown(f"""
+### 🔐 DOCUMENT APPROVAL REQUIRED
+
+**Generated by:** {agent_used}
+
+A financial document has been generated based on your KPI data and company analysis.
+
+**Please Review:**
+- Does the content accurately reflect your data?
+- Are the metrics and insights correct?
+- Is the formatting professional?
+                    """)
+
+                    # Add Approve/Reject buttons
+                    col_approve, col_reject = st.columns(2)
+
+                    with col_approve:
+                        if st.button("✅ Approve & Save", use_container_width=True, key="doc_approve"):
+                            # Save the approved document
+                            doc_name = st.session_state.current_document.replace(".pdf", "").replace(".txt", "").replace(".csv", "").replace(".xlsx", "").replace(".xls", "")
+                            filename = f"{doc_name}_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+
+                            success, path = save_approved_document(filename, st.session_state.pending_document)
+
+                            if success:
+                                st.success(f"✅ Document approved and saved!")
+                                st.info(f"📁 Saved to: `{path}`")
+
+                                current_conv["messages"].append({
+                                    "role": "assistant",
+                                    "content": f"✅ Document approved and saved\n\n📁 Location: {path}",
+                                    "metadata": {
+                                        "agent": "document_creator",
+                                        "action": "document_saved",
+                                        "file_path": path,
+                                    }
+                                })
+
+                                # Clear pending document
+                                st.session_state.pending_document = None
+                                st.session_state.pending_document_question = None
+                                update_conversation_timestamp(current_conv)
+                                st.rerun()
+                            else:
+                                st.error(f"❌ Error saving document: {path}")
+
+                    with col_reject:
+                        if st.button("❌ Reject & Revise", use_container_width=True, key="doc_reject"):
+                            st.warning("Document rejected. Please describe what changes you'd like to make.")
+
+                            current_conv["messages"].append({
+                                "role": "assistant",
+                                "content": "Document rejected. Please specify what changes are needed or ask me to regenerate it.",
+                                "metadata": {
+                                    "agent": "document_creator",
+                                    "action": "document_rejected",
+                                }
+                            })
+
+                            # Clear pending document
+                            st.session_state.pending_document = None
+                            st.session_state.pending_document_question = None
+                            update_conversation_timestamp(current_conv)
+                            st.rerun()
+
+                    current_conv["messages"].append({
+                        "role": "assistant",
+                        "content": document_content + "\n\n[AWAITING DOCUMENT APPROVAL]",
+                        "metadata": {
+                            "agent": "document_creator",
+                            "requires_approval": True,
+                            "document_content": document_content,
+                        }
+                    })
+                    update_conversation_timestamp(current_conv)
+                else:
+                    st.error("❌ No document loaded. Please upload a document first.")
+
         # Check if it's an investment question
-        if detect_investment_question(question):
+        elif detect_investment_question(question):
             with st.chat_message("assistant"):
                 # First, analyze the document if available
                 analysis = ""
@@ -630,7 +810,7 @@ This is an **investment-related question** that requires human review.
                 update_conversation_timestamp(current_conv)
 
         elif not st.session_state.api_key_set:
-            st.error("❌ API key not configured. Set it in the sidebar first!")
+            st.error("❌ API key not configured. Please set GOOGLE_API_KEY in your .env file")
 
         else:
             with st.chat_message("assistant"):

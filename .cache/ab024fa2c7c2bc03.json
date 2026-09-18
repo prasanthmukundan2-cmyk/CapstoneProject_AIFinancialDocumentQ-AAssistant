@@ -1,0 +1,9 @@
+{
+  "answer": "Could not summarize documents. Error: \ud83d\udeab **API Rate Limit Exceeded**\n\nThe Google Gemini API rate limit has been reached.\n\n**What to do:**\n1",
+  "agent": "summary_agent",
+  "sources": [
+    "annual_report.pdf",
+    "Document"
+  ],
+  "cached_at": "2026-09-18T21:58:03.259202"
+}

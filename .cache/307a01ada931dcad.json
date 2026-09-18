@@ -1,0 +1,9 @@
+{
+  "answer": "Here is a summary of the financial performance and balance sheet data for NovaTech Holdings:\n\n**FY 2023 Financial Overview**\n* **Revenue:** $125,000,000 (125 million USD)\n* **Expenses:** $80,000,000 (80 million USD)\n\n**FY 2024 Financial Performance (Income Statement)**\n* **Revenue:** $150,000,000 (150 million USD) \u2014 *growth from $125M in FY23*\n* **Operating Expenses:** $95,000,000 (95 million USD)\n* **Gross Profit:** $55,000,000 (55 million USD)\n* **Operating Profit (EBIT):** $32,000,000 (32 million USD)\n* **Net Profit (Net Income):** $20,000,000 (20 million USD)\n\n**FY 2024 Balance Sheet Summary (as of December 31, 2024)**\n* **Total Assets:** $720,000,000 (720 million USD)\n  * **Current Assets:** $260,000,000 (includes **Cash & Cash Equivalents** of $85,000,000)\n* **Total Liabilities:** $310,000,000 (310 million USD)\n  * **Current Liabilities:** $110,000,000 \n* **Total Shareholders' Equity:** $410,000,000 (410 million USD)",
+  "agent": "summary_agent",
+  "sources": [
+    "test.csv",
+    "Document"
+  ],
+  "cached_at": "2026-09-18T19:41:30.034771"
+}

@@ -4,7 +4,9 @@
       "Bash(python test_system.py)",
       "Bash(python -m py_compile app.py)",
       "Bash(python -m py_compile src/simple_document_qa.py)",
-      "Bash(curl -s http://localhost:8501)"
+      "Bash(curl -s http://localhost:8501)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
