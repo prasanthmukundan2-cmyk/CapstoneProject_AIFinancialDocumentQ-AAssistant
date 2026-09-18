@@ -207,7 +207,7 @@ if "current_conversation_id" not in st.session_state:
     st.session_state.conversations[initial_conv["id"]] = initial_conv
     st.session_state.current_conversation_id = initial_conv["id"]
 
-# API key state
+# API key state (checked from .env file)
 if "api_key_set" not in st.session_state:
     st.session_state.api_key_set = bool(os.getenv("GOOGLE_API_KEY"))
 
@@ -290,17 +290,6 @@ with st.sidebar:
                 ):
                     st.session_state.current_conversation_id = conv_id
                     st.rerun()
-
-    st.divider()
-
-    # ========== API KEY STATUS ==========
-    st.subheader("🔑 API Configuration")
-    if os.getenv("GOOGLE_API_KEY"):
-        st.success("✅ API key configured from .env file")
-        st.session_state.api_key_set = True
-    else:
-        st.error("❌ No API key found. Please set GOOGLE_API_KEY in your .env file")
-        st.session_state.api_key_set = False
 
     st.divider()
 
